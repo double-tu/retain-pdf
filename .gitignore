@@ -40,3 +40,4 @@ data/
 *.AppImage
 backend/python/
 backend/typst-win32/bin/
+.DS_Store

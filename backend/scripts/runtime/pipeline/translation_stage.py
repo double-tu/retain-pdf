@@ -2,13 +2,20 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from services.translation.llm import translate_batch
 from services.translation.ocr.json_extractor import get_page_count
 from services.translation.ocr.json_extractor import load_ocr_json
 from services.translation.diagnostics import TranslationRunDiagnostics
 from services.translation.diagnostics import aggregate_payload_diagnostics
 from services.translation.diagnostics import classify_provider_family
 from services.translation.diagnostics import translation_run_diagnostics_scope
+from services.translation.llm.placeholder_guard import should_force_translate_body_text
+from services.translation.payload import apply_translated_text_map
+from services.translation.payload import pending_translation_items
+from services.translation.payload import save_translations
 from services.translation.payload import write_translation_manifest
+from services.translation.payload.parts.common import clear_translation_fields
+from services.translation.payload.parts.common import translation_unit_id
 from services.translation.session_context import build_translation_context_from_policy
 from services.translation.terms import GlossaryEntry
 from services.translation.terms import summarize_glossary_usage
@@ -17,6 +24,158 @@ from services.translation.llm import DEFAULT_BASE_URL
 from services.translation.policy import build_book_translation_policy_config
 from services.translation.workflow import default_page_translation_name
 from runtime.pipeline.book_translation_flow import translate_book_with_global_continuations
+
+RETRYABLE_KEEP_ORIGIN_RECOVERY_ATTEMPTS = 2
+
+
+def _is_retryable_transport_keep_origin(item: dict) -> bool:
+    diagnostics = dict(item.get("translation_diagnostics") or {})
+    final_status = str(item.get("final_status", "") or diagnostics.get("final_status", "") or "").strip().lower()
+    if final_status != "kept_origin":
+        return False
+    if str(diagnostics.get("fallback_to", "") or "").strip().lower() != "keep_origin":
+        return False
+    error_trace = diagnostics.get("error_trace") or []
+    if any(str((entry or {}).get("type", "") or "").strip().lower() == "transport" for entry in error_trace):
+        return True
+    degradation_reason = str(diagnostics.get("degradation_reason", "") or "").strip().lower()
+    return "transport" in degradation_reason or "timeout" in degradation_reason
+
+
+def _retryable_keep_origin_unit_ids(translated_pages_map: dict[int, list[dict]]) -> set[str]:
+    unit_ids: set[str] = set()
+    for items in translated_pages_map.values():
+        for item in items:
+            if not _is_retryable_transport_keep_origin(item):
+                continue
+            if not should_force_translate_body_text(item):
+                continue
+            unit_ids.add(translation_unit_id(item))
+    return unit_ids
+
+
+def _collect_retryable_keep_origin_items(translated_pages_map: dict[int, list[dict]]) -> list[dict[str, object]]:
+    degraded: list[dict[str, object]] = []
+    for page_idx, items in sorted(translated_pages_map.items()):
+        for item in items:
+            if not _is_retryable_transport_keep_origin(item):
+                continue
+            if not should_force_translate_body_text(item):
+                continue
+            diagnostics = dict(item.get("translation_diagnostics") or {})
+            degraded.append(
+                {
+                    "page_idx": page_idx,
+                    "page_number": page_idx + 1,
+                    "item_id": str(item.get("item_id", "") or ""),
+                    "degradation_reason": str(diagnostics.get("degradation_reason", "") or ""),
+                }
+            )
+    return degraded
+
+
+def _reset_retryable_keep_origin_item_for_retry(item: dict) -> None:
+    if str(item.get("classification_label", "") or "").strip() == "skip_model_keep_origin":
+        item["classification_label"] = ""
+    item["should_translate"] = True
+    item["skip_reason"] = ""
+    item["final_status"] = ""
+    item["translation_diagnostics"] = {}
+    clear_translation_fields(item)
+
+
+def _retry_retryable_keep_origin_items(
+    *,
+    translated_pages_map: dict[int, list[dict]],
+    output_dir: Path,
+    api_key: str,
+    model: str,
+    base_url: str,
+    mode: str,
+    translation_context,
+) -> dict[str, int]:
+    flat_payload = [
+        item
+        for page_idx in sorted(translated_pages_map)
+        for item in translated_pages_map[page_idx]
+    ]
+    if not flat_payload:
+        return {"retried_units": 0, "recovered_units": 0, "remaining_units": 0}
+
+    unit_to_pages: dict[str, set[int]] = {}
+    for page_idx, items in translated_pages_map.items():
+        for item in items:
+            unit_to_pages.setdefault(translation_unit_id(item), set()).add(page_idx)
+
+    total_retried_units = 0
+    total_recovered_units = 0
+    for attempt in range(1, RETRYABLE_KEEP_ORIGIN_RECOVERY_ATTEMPTS + 1):
+        retry_unit_ids = _retryable_keep_origin_unit_ids(translated_pages_map)
+        if not retry_unit_ids:
+            break
+        before_count = len(retry_unit_ids)
+        print(
+            f"book: recovery retryable keep_origin units={before_count} attempt={attempt}/{RETRYABLE_KEEP_ORIGIN_RECOVERY_ATTEMPTS}",
+            flush=True,
+        )
+        for item in flat_payload:
+            if translation_unit_id(item) in retry_unit_ids:
+                _reset_retryable_keep_origin_item_for_retry(item)
+        retry_units = [
+            unit
+            for unit in pending_translation_items(flat_payload)
+            if translation_unit_id(unit) in retry_unit_ids
+        ]
+        dirty_pages: set[int] = set()
+        for index, unit in enumerate(retry_units, start=1):
+            unit_id = translation_unit_id(unit)
+            result = translate_batch(
+                [unit],
+                api_key=api_key,
+                model=model,
+                base_url=base_url,
+                request_label=f"book: recovery {attempt}/{RETRYABLE_KEEP_ORIGIN_RECOVERY_ATTEMPTS} item {index}/{len(retry_units)} {unit_id}",
+                domain_guidance=translation_context.merged_guidance if translation_context is not None else "",
+                mode=mode,
+                context=translation_context,
+            )
+            apply_translated_text_map(flat_payload, result)
+            dirty_pages.update(unit_to_pages.get(unit_id, set()))
+        for page_idx in sorted(dirty_pages):
+            save_translations(
+                output_dir / default_page_translation_name(page_idx),
+                translated_pages_map[page_idx],
+            )
+        after_count = len(_retryable_keep_origin_unit_ids(translated_pages_map))
+        total_retried_units += len(retry_units)
+        total_recovered_units += max(0, before_count - after_count)
+        print(
+            f"book: recovery attempt {attempt} recovered={max(0, before_count - after_count)} remaining={after_count}",
+            flush=True,
+        )
+        if after_count <= 0:
+            break
+    return {
+        "retried_units": total_retried_units,
+        "recovered_units": total_recovered_units,
+        "remaining_units": len(_retryable_keep_origin_unit_ids(translated_pages_map)),
+    }
+
+
+def _raise_on_retryable_keep_origin_items(translated_pages_map: dict[int, list[dict]]) -> None:
+    degraded = _collect_retryable_keep_origin_items(translated_pages_map)
+    if not degraded:
+        return
+    examples = ", ".join(
+        f"p{entry['page_number']}:{entry['item_id']}[{entry['degradation_reason'] or 'keep_origin'}]"
+        for entry in degraded[:8]
+    )
+    raise RuntimeError(
+        "Translation stage aborted: "
+        f"{len(degraded)} body-text item(s) were kept in the source language after retryable transport failures. "
+        "This would leak untranslated text into the rendered PDF. "
+        f"Examples: {examples}"
+    )
 
 
 def translate_book_pipeline(
@@ -114,6 +273,24 @@ def translate_book_pipeline(
         )
     total_items = sum(item["total_items"] for item in summaries)
     translated_items = sum(item["translated_items"] for item in summaries)
+    recovery_summary = _retry_retryable_keep_origin_items(
+        translated_pages_map=translated_pages_map,
+        output_dir=output_dir,
+        api_key=api_key,
+        model=model,
+        base_url=base_url,
+        mode=mode,
+        translation_context=translation_context,
+    )
+    if recovery_summary["retried_units"] > 0:
+        print(
+            "book: recovery summary "
+            f"retried={recovery_summary['retried_units']} "
+            f"recovered={recovery_summary['recovered_units']} "
+            f"remaining={recovery_summary['remaining_units']}",
+            flush=True,
+        )
+    _raise_on_retryable_keep_origin_items(translated_pages_map)
     glossary_summary = summarize_glossary_usage(
         entries=glossary_entries or [],
         translated_pages_map=translated_pages_map,
