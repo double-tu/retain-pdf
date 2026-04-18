@@ -168,6 +168,37 @@ docker compose ps
 - [旧 FastAPI 包装层](backend/Fast_API/README.md)
 - `frontend/`：当前浏览器前端静态资源与桌面端打包输入目录
 
+### 本地开发启动
+
+仓库根目录提供了一键开发脚本：
+
+- macOS / Linux：`./start-dev.sh`、`./stop-dev.sh`
+- Windows PowerShell：`.\start-dev.ps1`、`.\stop-dev.ps1`
+
+使用说明见：
+
+- [本地启动与配置](doc/api-dev.md)
+
+### Fork 后同步原仓库更新
+
+如果你是基于自己的 fork 开发，建议保持：
+
+- `origin` 指向你自己的 fork
+- `upstream` 指向原始仓库
+
+后续同步原仓库更新时，执行：
+
+```bash
+git fetch upstream
+git checkout main
+git merge upstream/main
+git push origin main
+```
+
+如果还没有配置远程，可以参考：
+
+- [本地启动与配置](doc/api-dev.md)
+
 ### 当前目录结构
 
 - `frontend/`
