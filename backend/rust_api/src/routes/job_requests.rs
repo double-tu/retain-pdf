@@ -151,6 +151,23 @@ fn apply_multipart_request_field(
         "end_page" => request.translation.end_page = parse_i64_like(name, value)?,
         "batch_size" => request.translation.batch_size = parse_i64_like(name, value)?,
         "workers" => request.translation.workers = parse_i64_like(name, value)?,
+        "domain_context_pages" => request.translation.domain_context_pages = parse_i64_like(name, value)?,
+        "domain_context_max_chars" => request.translation.domain_context_max_chars = parse_i64_like(name, value)?,
+        "local_context_neighbors" => request.translation.local_context_neighbors = parse_i64_like(name, value)?,
+        "local_context_chars" => request.translation.local_context_chars = parse_i64_like(name, value)?,
+        "auto_glossary_enabled" => request.translation.auto_glossary_enabled = parse_bool_like(value),
+        "auto_glossary_candidates" => request.translation.auto_glossary_candidates = parse_i64_like(name, value)?,
+        "auto_glossary_terms" => request.translation.auto_glossary_terms = parse_i64_like(name, value)?,
+        "plain_text_timeout_seconds" => request.translation.plain_text_timeout_seconds = parse_i64_like(name, value)?,
+        "batch_plain_text_timeout_seconds" => {
+            request.translation.batch_plain_text_timeout_seconds = parse_i64_like(name, value)?
+        }
+        "formula_segment_timeout_seconds" => {
+            request.translation.formula_segment_timeout_seconds = parse_i64_like(name, value)?
+        }
+        "formula_window_timeout_seconds" => {
+            request.translation.formula_window_timeout_seconds = parse_i64_like(name, value)?
+        }
         "translated_pdf_name" => request.render.translated_pdf_name = value.to_string(),
         "mineru_token" => request.ocr.mineru_token = value.to_string(),
         "model_version" => request.ocr.model_version = value.to_string(),

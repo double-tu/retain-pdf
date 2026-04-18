@@ -153,9 +153,33 @@ export function mountJobRuntimeFeature({
     }
   }
 
+  async function retryCurrentJob() {
+    const job = state.currentJobSnapshot;
+    const jobId = job?.job_id || state.currentJobId;
+    if (!jobId) {
+      setText("error-box", "当前没有可重试的任务");
+      return;
+    }
+    $("retry-btn").disabled = true;
+    try {
+      const payload = await submitJson(`${apiBase()}${apiPrefix}/jobs/${jobId}/retry`, {});
+      state.currentJobStartedAt = new Date().toISOString();
+      state.currentJobFinishedAt = "";
+      renderJob(payload);
+      startPolling(payload.job_id);
+    } catch (err) {
+      setText("error-box", err.message);
+    } finally {
+      if ($("retry-btn")) {
+        $("retry-btn").disabled = false;
+      }
+    }
+  }
+
   return {
     cancelCurrentJob,
     fetchJob,
+    retryCurrentJob,
     returnToHome,
     startPolling,
     stopPolling,

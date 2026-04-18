@@ -99,6 +99,7 @@ const NORMALIZE_STAGE_SCHEMA_VERSION: &str = "normalize.stage.v1";
 const TRANSLATE_STAGE_SCHEMA_VERSION: &str = "translate.stage.v1";
 const RENDER_STAGE_SCHEMA_VERSION: &str = "render.stage.v1";
 const MINERU_STAGE_SCHEMA_VERSION: &str = "mineru.stage.v1";
+const BOOK_STAGE_SCHEMA_VERSION: &str = "book.stage.v1";
 const TRANSLATION_API_KEY_ENV_NAME: &str = "RETAIN_TRANSLATION_API_KEY";
 const MINERU_TOKEN_ENV_NAME: &str = "RETAIN_MINERU_API_TOKEN";
 
@@ -116,6 +117,10 @@ fn render_stage_spec_path(job_paths: &JobPaths) -> PathBuf {
 
 fn mineru_stage_spec_path(job_paths: &JobPaths) -> PathBuf {
     job_paths.specs_dir.join("mineru.spec.json")
+}
+
+fn book_stage_spec_path(job_paths: &JobPaths) -> PathBuf {
+    job_paths.specs_dir.join("book.spec.json")
 }
 
 fn write_normalize_stage_spec(
@@ -207,6 +212,17 @@ fn write_translate_stage_spec(
             "glossary_entries": request.translation.glossary_entries,
             "model": request.translation.model,
             "base_url": request.translation.base_url,
+            "domain_context_pages": request.translation.domain_context_pages,
+            "domain_context_max_chars": request.translation.domain_context_max_chars,
+            "local_context_neighbors": request.translation.local_context_neighbors,
+            "local_context_chars": request.translation.local_context_chars,
+            "auto_glossary_enabled": request.translation.auto_glossary_enabled,
+            "auto_glossary_candidates": request.translation.auto_glossary_candidates,
+            "auto_glossary_terms": request.translation.auto_glossary_terms,
+            "plain_text_timeout_seconds": request.translation.plain_text_timeout_seconds,
+            "batch_plain_text_timeout_seconds": request.translation.batch_plain_text_timeout_seconds,
+            "formula_segment_timeout_seconds": request.translation.formula_segment_timeout_seconds,
+            "formula_window_timeout_seconds": request.translation.formula_window_timeout_seconds,
             "credential_ref": credential_ref,
         },
     });
@@ -332,6 +348,17 @@ fn write_mineru_stage_spec(
             "glossary_entries": request.translation.glossary_entries,
             "model": request.translation.model,
             "base_url": request.translation.base_url,
+            "domain_context_pages": request.translation.domain_context_pages,
+            "domain_context_max_chars": request.translation.domain_context_max_chars,
+            "local_context_neighbors": request.translation.local_context_neighbors,
+            "local_context_chars": request.translation.local_context_chars,
+            "auto_glossary_enabled": request.translation.auto_glossary_enabled,
+            "auto_glossary_candidates": request.translation.auto_glossary_candidates,
+            "auto_glossary_terms": request.translation.auto_glossary_terms,
+            "plain_text_timeout_seconds": request.translation.plain_text_timeout_seconds,
+            "batch_plain_text_timeout_seconds": request.translation.batch_plain_text_timeout_seconds,
+            "formula_segment_timeout_seconds": request.translation.formula_segment_timeout_seconds,
+            "formula_window_timeout_seconds": request.translation.formula_window_timeout_seconds,
             "credential_ref": translation_credential_ref,
         },
         "render": {
@@ -351,6 +378,86 @@ fn write_mineru_stage_spec(
     let content = serde_json::to_string_pretty(&payload)?;
     fs::write(&spec_path, content)
         .with_context(|| format!("write mineru stage spec: {}", spec_path.display()))?;
+    Ok(spec_path)
+}
+
+fn write_book_stage_spec(
+    request: &ResolvedJobSpec,
+    job_paths: &JobPaths,
+    source_json_path: &Path,
+    source_pdf_path: &Path,
+    layout_json_path: Option<&Path>,
+) -> Result<PathBuf> {
+    fs::create_dir_all(&job_paths.specs_dir)
+        .with_context(|| format!("create specs dir: {}", job_paths.specs_dir.display()))?;
+    let spec_path = book_stage_spec_path(job_paths);
+    let credential_ref = if request.translation.api_key.trim().is_empty() {
+        String::new()
+    } else {
+        format!("env:{TRANSLATION_API_KEY_ENV_NAME}")
+    };
+    let payload = json!({
+        "schema_version": BOOK_STAGE_SCHEMA_VERSION,
+        "stage": "book",
+        "job": {
+            "job_id": request.job_id,
+            "job_root": job_paths.root,
+            "workflow": request.workflow,
+        },
+        "inputs": {
+            "source_json": source_json_path,
+            "source_pdf": source_pdf_path,
+            "layout_json": layout_json_path,
+        },
+        "translation": {
+            "start_page": request.translation.start_page,
+            "end_page": request.translation.end_page,
+            "batch_size": request.translation.batch_size,
+            "workers": request.resolved_workers(),
+            "mode": request.translation.mode,
+            "math_mode": request.translation.math_mode,
+            "skip_title_translation": request.translation.skip_title_translation,
+            "classify_batch_size": request.translation.classify_batch_size,
+            "rule_profile_name": request.translation.rule_profile_name,
+            "custom_rules_text": request.translation.custom_rules_text,
+            "glossary_id": request.translation.glossary_id,
+            "glossary_name": request.translation.glossary_name,
+            "glossary_resource_entry_count": request.translation.glossary_resource_entry_count,
+            "glossary_inline_entry_count": request.translation.glossary_inline_entry_count,
+            "glossary_overridden_entry_count": request.translation.glossary_overridden_entry_count,
+            "glossary_entries": request.translation.glossary_entries,
+            "model": request.translation.model,
+            "base_url": request.translation.base_url,
+            "domain_context_pages": request.translation.domain_context_pages,
+            "domain_context_max_chars": request.translation.domain_context_max_chars,
+            "local_context_neighbors": request.translation.local_context_neighbors,
+            "local_context_chars": request.translation.local_context_chars,
+            "auto_glossary_enabled": request.translation.auto_glossary_enabled,
+            "auto_glossary_candidates": request.translation.auto_glossary_candidates,
+            "auto_glossary_terms": request.translation.auto_glossary_terms,
+            "plain_text_timeout_seconds": request.translation.plain_text_timeout_seconds,
+            "batch_plain_text_timeout_seconds": request.translation.batch_plain_text_timeout_seconds,
+            "formula_segment_timeout_seconds": request.translation.formula_segment_timeout_seconds,
+            "formula_window_timeout_seconds": request.translation.formula_window_timeout_seconds,
+            "credential_ref": credential_ref,
+        },
+        "render": {
+            "render_mode": request.render.render_mode,
+            "compile_workers": request.render.compile_workers,
+            "typst_font_family": request.render.typst_font_family,
+            "pdf_compress_dpi": request.render.pdf_compress_dpi,
+            "translated_pdf_name": request.render.translated_pdf_name,
+            "body_font_size_factor": request.render.body_font_size_factor,
+            "body_leading_factor": request.render.body_leading_factor,
+            "inner_bbox_shrink_x": request.render.inner_bbox_shrink_x,
+            "inner_bbox_shrink_y": request.render.inner_bbox_shrink_y,
+            "inner_bbox_dense_shrink_x": request.render.inner_bbox_dense_shrink_x,
+            "inner_bbox_dense_shrink_y": request.render.inner_bbox_dense_shrink_y,
+        },
+    });
+    let content = serde_json::to_string_pretty(&payload)?;
+    fs::write(&spec_path, content)
+        .with_context(|| format!("write book stage spec: {}", spec_path.display()))?;
     Ok(spec_path)
 }
 
@@ -436,6 +543,28 @@ pub(crate) fn build_translate_only_command(
     .expect("write translate stage spec");
     let mut cmd =
         CommandBuilder::new(&config.python_bin, &config.run_translate_only_script, true);
+    cmd.path_arg("--spec", &spec_path);
+    cmd.finish()
+}
+
+pub(crate) fn build_translate_from_ocr_command(
+    config: &AppConfig,
+    request: &ResolvedJobSpec,
+    job_paths: &JobPaths,
+    source_json_path: &Path,
+    source_pdf_path: &Path,
+    layout_json_path: Option<&Path>,
+) -> Vec<String> {
+    let spec_path = write_book_stage_spec(
+        request,
+        job_paths,
+        source_json_path,
+        source_pdf_path,
+        layout_json_path,
+    )
+    .expect("write book stage spec");
+    let mut cmd =
+        CommandBuilder::new(&config.python_bin, &config.run_translate_from_ocr_script, true);
     cmd.path_arg("--spec", &spec_path);
     cmd.finish()
 }

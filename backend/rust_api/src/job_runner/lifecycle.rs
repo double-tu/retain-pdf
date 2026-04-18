@@ -15,8 +15,12 @@ use crate::AppState;
 
 use super::{
     append_error_chain_log, format_error_chain, ocr_flow::execute_ocr_job,
-    render_flow::run_render_job_from_artifacts, translation_flow::run_translate_only_job_with_ocr,
-    translation_flow::run_translation_job_with_ocr, QUEUE_POLL_INTERVAL_MS,
+    render_flow::run_render_job_from_artifacts,
+    translation_flow::run_translate_only_job_from_artifacts,
+    translation_flow::run_translate_only_job_with_ocr,
+    translation_flow::run_translation_job_from_artifacts,
+    translation_flow::run_translation_job_with_ocr,
+    QUEUE_POLL_INTERVAL_MS,
 };
 
 pub fn spawn_job(state: AppState, job_id: String) {
@@ -95,10 +99,18 @@ async fn run_job(state: AppState, job_id: String) -> Result<()> {
             execute_ocr_job(state.clone(), job.into_runtime(), None, None).await?
         }
         crate::models::WorkflowKind::Mineru => {
-            run_translation_job_with_ocr(state.clone(), job.into_runtime()).await?
+            if !job.request_payload.source.artifact_job_id.trim().is_empty() {
+                run_translation_job_from_artifacts(state.clone(), job.into_runtime()).await?
+            } else {
+                run_translation_job_with_ocr(state.clone(), job.into_runtime()).await?
+            }
         }
         crate::models::WorkflowKind::Translate => {
-            run_translate_only_job_with_ocr(state.clone(), job.into_runtime()).await?
+            if !job.request_payload.source.artifact_job_id.trim().is_empty() {
+                run_translate_only_job_from_artifacts(state.clone(), job.into_runtime()).await?
+            } else {
+                run_translate_only_job_with_ocr(state.clone(), job.into_runtime()).await?
+            }
         }
         crate::models::WorkflowKind::Render => {
             run_render_job_from_artifacts(state.clone(), job.into_runtime()).await?

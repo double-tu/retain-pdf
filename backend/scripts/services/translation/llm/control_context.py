@@ -161,6 +161,7 @@ def build_translation_control_context(
     abbreviation_entries: list[AbbreviationEntry] | None = None,
     retrieval_entries: list[RetrievalEvidence] | None = None,
     engine_profile: EngineProfile | None = None,
+    timeout_policy: TimeoutPolicy | None = None,
 ) -> TranslationControlContext:
     resolved_profile = engine_profile or EngineProfile()
     return TranslationControlContext(
@@ -171,7 +172,7 @@ def build_translation_control_context(
         request_label=request_label,
         segmentation_policy=resolved_profile.segmentation_policy,
         fallback_policy=resolved_profile.fallback_policy,
-        timeout_policy=resolved_profile.timeout_policy,
+        timeout_policy=timeout_policy or resolved_profile.timeout_policy,
         batch_policy=resolved_profile.batch_policy,
         engine_profile_name=resolved_profile.name,
         glossary_entries=list(glossary_entries or []),

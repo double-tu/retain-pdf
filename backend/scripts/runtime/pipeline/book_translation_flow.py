@@ -13,6 +13,7 @@ from runtime.pipeline.book_translation_policies import review_and_apply_continua
 from services.translation.diagnostics import TranslationRunDiagnostics
 from services.translation.postprocess import reconstruct_garbled_page_payloads
 from services.translation.orchestration.document_orchestrator import finalize_orchestration_metadata_by_page
+from services.translation.orchestration.local_context import annotate_local_context
 from services.translation.llm.control_context import TranslationControlContext
 from services.translation.policy import TranslationPolicyConfig
 from services.translation.payload import load_translations
@@ -37,6 +38,9 @@ def translate_book_with_global_continuations(
     domain_guidance: str = "",
     translation_context: TranslationControlContext | None = None,
     run_diagnostics: TranslationRunDiagnostics | None = None,
+    pre_translation_hook=None,
+    local_context_neighbors: int | None = None,
+    local_context_chars: int | None = None,
 ) -> tuple[dict[int, list[dict]], list[dict]]:
     if translation_context is not None:
         domain_guidance = translation_context.merged_guidance
@@ -70,6 +74,21 @@ def translate_book_with_global_continuations(
         if run_diagnostics is not None:
             run_diagnostics.mark_phase_end("continuation_review")
         print(f"book: continuation review in {time.perf_counter() - review_started:.2f}s", flush=True)
+
+    local_context_updates = annotate_local_context(
+        page_payloads,
+        neighbor_count=local_context_neighbors,
+        max_chars=local_context_chars,
+    )
+    if local_context_updates:
+        save_pages(page_payloads, translation_paths)
+        print(f"book: local context annotated updates={local_context_updates}", flush=True)
+
+    if pre_translation_hook is not None:
+        next_translation_context = pre_translation_hook(page_payloads)
+        if next_translation_context is not None:
+            translation_context = next_translation_context
+            domain_guidance = translation_context.merged_guidance
 
     policy_started = time.perf_counter()
     if run_diagnostics is not None:

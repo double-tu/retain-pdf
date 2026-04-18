@@ -143,6 +143,8 @@ def export_translation_template(
                 "continuation_group": "",
                 "continuation_prev_text": "",
                 "continuation_next_text": "",
+                "local_context_before": "",
+                "local_context_after": "",
                 "continuation_decision": "",
                 "continuation_candidate_prev_id": "",
                 "continuation_candidate_next_id": "",
@@ -355,6 +357,12 @@ def ensure_translation_template(
             changed = True
         if "continuation_next_text" not in record:
             record["continuation_next_text"] = ""
+            changed = True
+        if "local_context_before" not in record:
+            record["local_context_before"] = ""
+            changed = True
+        if "local_context_after" not in record:
+            record["local_context_after"] = ""
             changed = True
         if "continuation_decision" not in record:
             record["continuation_decision"] = ""

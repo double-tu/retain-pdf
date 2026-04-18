@@ -70,6 +70,7 @@ pub struct JobActionsView {
     pub open_job: ActionLinkView,
     pub open_artifacts: ActionLinkView,
     pub cancel: ActionLinkView,
+    pub retry: ActionLinkView,
     pub download_pdf: ActionLinkView,
     pub open_markdown: ActionLinkView,
     pub open_markdown_raw: ActionLinkView,
@@ -379,6 +380,15 @@ fn can_cancel(status: &JobStatusKind) -> bool {
     matches!(status, JobStatusKind::Queued | JobStatusKind::Running)
 }
 
+fn can_retry(job: &JobSnapshot) -> bool {
+    matches!(job.status, JobStatusKind::Failed)
+        && job
+            .failure
+            .as_ref()
+            .map(|failure| failure.retryable)
+            .unwrap_or(false)
+}
+
 fn action_link(enabled: bool, method: &str, path: String, base_url: &str) -> ActionLinkView {
     ActionLinkView {
         enabled,
@@ -399,6 +409,7 @@ pub fn build_job_actions(
     let job_path = format!("{prefix}/{}", job.job_id);
     let artifacts_path = format!("{prefix}/{}/artifacts", job.job_id);
     let cancel_path = format!("{prefix}/{}/cancel", job.job_id);
+    let retry_path = format!("{prefix}/{}/retry", job.job_id);
     let pdf_path = format!("{prefix}/{}/pdf", job.job_id);
     let markdown_path = format!("{prefix}/{}/markdown", job.job_id);
     let markdown_raw_path = format!("{prefix}/{}/markdown?raw=true", job.job_id);
@@ -407,6 +418,7 @@ pub fn build_job_actions(
         open_job: action_link(true, "GET", job_path, base_url),
         open_artifacts: action_link(true, "GET", artifacts_path, base_url),
         cancel: action_link(can_cancel(&job.status), "POST", cancel_path, base_url),
+        retry: action_link(can_retry(job), "POST", retry_path, base_url),
         download_pdf: action_link(pdf_ready, "GET", pdf_path, base_url),
         open_markdown: action_link(markdown_ready, "GET", markdown_path, base_url),
         open_markdown_raw: action_link(markdown_ready, "GET", markdown_raw_path, base_url),

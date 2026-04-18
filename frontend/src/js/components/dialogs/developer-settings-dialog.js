@@ -95,6 +95,83 @@ class DeveloperSettingsDialog extends HTMLElement {
                       </span>
                       <input id="developer-timeout-seconds" type="number" min="1" step="1" inputmode="numeric" />
                     </label>
+                    <label>
+                      <span class="developer-label">
+                        <span>前文页数</span>
+                        <button type="button" class="developer-hint" aria-label="前文页数说明" data-tooltip="用于全局领域总结的前置页面数。每次任务按当前值即时生效。">i</button>
+                      </span>
+                      <input id="developer-domain-context-pages" type="number" min="1" step="1" inputmode="numeric" />
+                    </label>
+                    <label>
+                      <span class="developer-label">
+                        <span>全局上下文字符</span>
+                        <button type="button" class="developer-hint" aria-label="全局上下文字符说明" data-tooltip="全局领域总结读取的最大字符数，过大可能增加提示词成本。">i</button>
+                      </span>
+                      <input id="developer-domain-context-max-chars" type="number" min="1000" step="500" inputmode="numeric" />
+                    </label>
+                    <label>
+                      <span class="developer-label">
+                        <span>局部上下文邻居</span>
+                        <button type="button" class="developer-hint" aria-label="局部上下文邻居说明" data-tooltip="每个块额外携带的前后邻近文本块数量。">i</button>
+                      </span>
+                      <input id="developer-local-context-neighbors" type="number" min="0" step="1" inputmode="numeric" />
+                    </label>
+                    <label>
+                      <span class="developer-label">
+                        <span>局部上下文字符</span>
+                        <button type="button" class="developer-hint" aria-label="局部上下文字符说明" data-tooltip="每侧局部上下文的最大字符数。">i</button>
+                      </span>
+                      <input id="developer-local-context-chars" type="number" min="0" step="50" inputmode="numeric" />
+                    </label>
+                    <label>
+                      <span class="developer-label">
+                        <span>自动术语候选数</span>
+                        <button type="button" class="developer-hint" aria-label="自动术语候选数说明" data-tooltip="自动术语表第一阶段保留的候选数。">i</button>
+                      </span>
+                      <input id="developer-auto-glossary-candidates" type="number" min="10" step="10" inputmode="numeric" />
+                    </label>
+                    <label>
+                      <span class="developer-label">
+                        <span>自动术语条目数</span>
+                        <button type="button" class="developer-hint" aria-label="自动术语条目数说明" data-tooltip="自动术语表最终输出并注入翻译提示的条目数。设为 0 可关闭。">i</button>
+                      </span>
+                      <input id="developer-auto-glossary-terms" type="number" min="0" step="1" inputmode="numeric" />
+                    </label>
+                    <label>
+                      <span class="developer-label">
+                        <span>单块超时</span>
+                        <button type="button" class="developer-hint" aria-label="单块超时说明" data-tooltip="单个普通翻译请求的超时时间。较慢模型建议调大。">i</button>
+                      </span>
+                      <input id="developer-plain-text-timeout-seconds" type="number" min="10" step="5" inputmode="numeric" />
+                    </label>
+                    <label>
+                      <span class="developer-label">
+                        <span>批量超时</span>
+                        <button type="button" class="developer-hint" aria-label="批量超时说明" data-tooltip="批量翻译请求的超时时间。">i</button>
+                      </span>
+                      <input id="developer-batch-plain-text-timeout-seconds" type="number" min="10" step="5" inputmode="numeric" />
+                    </label>
+                    <label>
+                      <span class="developer-label">
+                        <span>公式分段超时</span>
+                        <button type="button" class="developer-hint" aria-label="公式分段超时说明" data-tooltip="公式分段翻译请求的超时时间。">i</button>
+                      </span>
+                      <input id="developer-formula-segment-timeout-seconds" type="number" min="10" step="5" inputmode="numeric" />
+                    </label>
+                    <label>
+                      <span class="developer-label">
+                        <span>公式窗口超时</span>
+                        <button type="button" class="developer-hint" aria-label="公式窗口超时说明" data-tooltip="公式窗口翻译请求的超时时间。">i</button>
+                      </span>
+                      <input id="developer-formula-window-timeout-seconds" type="number" min="10" step="5" inputmode="numeric" />
+                    </label>
+                    <label class="developer-span-full">
+                      <span class="developer-label">
+                        <span>自动术语表</span>
+                        <button type="button" class="developer-hint" aria-label="自动术语表说明" data-tooltip="启用后，OCR 完成后会先自动抽取候选术语并生成全文术语表，再进入并发翻译。">i</button>
+                      </span>
+                      <input id="developer-auto-glossary-enabled" type="checkbox" />
+                    </label>
                   </div>
                 </div>
               </section>

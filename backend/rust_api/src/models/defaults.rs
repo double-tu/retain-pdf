@@ -28,6 +28,39 @@ pub(crate) fn default_end_page() -> i64 {
 pub(crate) fn default_batch_size() -> i64 {
     1
 }
+pub(crate) fn default_domain_context_pages() -> i64 {
+    5
+}
+pub(crate) fn default_domain_context_max_chars() -> i64 {
+    16000
+}
+pub(crate) fn default_local_context_neighbors() -> i64 {
+    1
+}
+pub(crate) fn default_local_context_chars() -> i64 {
+    420
+}
+pub(crate) fn default_auto_glossary_enabled() -> bool {
+    true
+}
+pub(crate) fn default_auto_glossary_candidates() -> i64 {
+    100
+}
+pub(crate) fn default_auto_glossary_terms() -> i64 {
+    30
+}
+pub(crate) fn default_plain_text_timeout_seconds() -> i64 {
+    90
+}
+pub(crate) fn default_batch_plain_text_timeout_seconds() -> i64 {
+    120
+}
+pub(crate) fn default_formula_segment_timeout_seconds() -> i64 {
+    120
+}
+pub(crate) fn default_formula_window_timeout_seconds() -> i64 {
+    150
+}
 pub(crate) fn default_model_version() -> String {
     "vlm".to_string()
 }

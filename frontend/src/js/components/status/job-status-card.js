@@ -100,6 +100,14 @@ class JobStatusCard extends HTMLElement {
     }
   }
 
+  setRetryEnabled(enabled) {
+    const button = this.querySelector("#retry-btn");
+    if (button) {
+      button.classList.toggle("hidden", !enabled);
+      button.disabled = !enabled;
+    }
+  }
+
   setBackHomeVisible(visible) {
     this.querySelector("#back-home-btn")?.classList.toggle("hidden", !visible);
   }
@@ -116,6 +124,7 @@ class JobStatusCard extends HTMLElement {
     pdfReady = false,
     readerReady = false,
     cancelEnabled = false,
+    retryEnabled = false,
     backHomeVisible = false,
   } = {}) {
     this.setStagePresentation({ label, value, iconMarkup });
@@ -128,6 +137,7 @@ class JobStatusCard extends HTMLElement {
     });
     this.syncPrimaryActions({ pdfReady, readerReady });
     this.setCancelEnabled(cancelEnabled);
+    this.setRetryEnabled(retryEnabled);
     this.setBackHomeVisible(backHomeVisible);
   }
 }

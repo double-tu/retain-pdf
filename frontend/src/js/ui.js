@@ -738,8 +738,13 @@ export function updateActionButtons(job, manifestPayload = null) {
   const statusCard = document.querySelector("job-status-card");
   if (statusCard?.setCancelEnabled && !statusCard?.renderSnapshot) {
     statusCard.setCancelEnabled(actions.cancelEnabled && !!actions.cancel);
+    statusCard.setRetryEnabled(actions.retryEnabled && !!actions.retry);
   } else {
     $("cancel-btn").disabled = !(actions.cancelEnabled && !!actions.cancel);
+    $("retry-btn")?.classList.toggle("hidden", !(actions.retryEnabled && !!actions.retry));
+    if ($("retry-btn")) {
+      $("retry-btn").disabled = !(actions.retryEnabled && !!actions.retry);
+    }
   }
 }
 
@@ -915,6 +920,7 @@ export function renderJob(payload, eventsPayload = null, manifestPayload = null)
       pdfReady: actions.pdfEnabled && !!actions.pdf && job.status === "succeeded",
       readerReady: readerEnabled && job.status === "succeeded",
       cancelEnabled: actions.cancelEnabled && !!actions.cancel,
+      retryEnabled: actions.retryEnabled && !!actions.retry,
       backHomeVisible: isTerminalStatus(job.status),
     });
   } else {

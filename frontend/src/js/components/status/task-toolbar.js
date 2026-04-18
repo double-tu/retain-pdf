@@ -43,6 +43,13 @@ class StatusTaskToolbar extends HTMLElement {
         </svg>
         <span>取消</span>
       </button>
+      <button id="retry-btn" type="button" class="task-toolbar-btn secondary hidden" aria-label="重试任务" title="重试任务" disabled>
+        <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M19 7.5v5h-5" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M18.2 12.45a7 7 0 1 1-1.5-7.55" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <span>重试</span>
+      </button>
       <button id="stop-btn" type="button" class="task-toolbar-btn secondary" aria-label="停止轮询" title="停止轮询">
         <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
           <rect x="7.7" y="7.7" width="8.6" height="8.6" rx="2.2" fill="currentColor"/>

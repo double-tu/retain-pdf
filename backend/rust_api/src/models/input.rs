@@ -153,6 +153,28 @@ pub struct TranslationInput {
     pub batch_size: i64,
     #[serde(default)]
     pub workers: i64,
+    #[serde(default = "default_domain_context_pages")]
+    pub domain_context_pages: i64,
+    #[serde(default = "default_domain_context_max_chars")]
+    pub domain_context_max_chars: i64,
+    #[serde(default = "default_local_context_neighbors")]
+    pub local_context_neighbors: i64,
+    #[serde(default = "default_local_context_chars")]
+    pub local_context_chars: i64,
+    #[serde(default = "default_auto_glossary_enabled")]
+    pub auto_glossary_enabled: bool,
+    #[serde(default = "default_auto_glossary_candidates")]
+    pub auto_glossary_candidates: i64,
+    #[serde(default = "default_auto_glossary_terms")]
+    pub auto_glossary_terms: i64,
+    #[serde(default = "default_plain_text_timeout_seconds")]
+    pub plain_text_timeout_seconds: i64,
+    #[serde(default = "default_batch_plain_text_timeout_seconds")]
+    pub batch_plain_text_timeout_seconds: i64,
+    #[serde(default = "default_formula_segment_timeout_seconds")]
+    pub formula_segment_timeout_seconds: i64,
+    #[serde(default = "default_formula_window_timeout_seconds")]
+    pub formula_window_timeout_seconds: i64,
 }
 
 impl Default for TranslationInput {
@@ -177,6 +199,17 @@ impl Default for TranslationInput {
             end_page: default_end_page(),
             batch_size: default_batch_size(),
             workers: 0,
+            domain_context_pages: default_domain_context_pages(),
+            domain_context_max_chars: default_domain_context_max_chars(),
+            local_context_neighbors: default_local_context_neighbors(),
+            local_context_chars: default_local_context_chars(),
+            auto_glossary_enabled: default_auto_glossary_enabled(),
+            auto_glossary_candidates: default_auto_glossary_candidates(),
+            auto_glossary_terms: default_auto_glossary_terms(),
+            plain_text_timeout_seconds: default_plain_text_timeout_seconds(),
+            batch_plain_text_timeout_seconds: default_batch_plain_text_timeout_seconds(),
+            formula_segment_timeout_seconds: default_formula_segment_timeout_seconds(),
+            formula_window_timeout_seconds: default_formula_window_timeout_seconds(),
         }
     }
 }

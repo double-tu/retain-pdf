@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from services.translation.llm.control_context import RetrievalEvidence
 from services.translation.llm.control_context import TranslationControlContext
+from services.translation.llm.control_context import TimeoutPolicy
 from services.translation.llm.control_context import build_translation_control_context
 from services.translation.llm.control_context import resolve_engine_profile
 from services.translation.policy import TranslationPolicyConfig
@@ -22,6 +23,7 @@ def build_translation_context(
     retrieval_entries: list[RetrievalEvidence] | None = None,
     model: str = "",
     base_url: str = "",
+    timeout_policy: TimeoutPolicy | None = None,
 ) -> TranslationControlContext:
     return build_translation_control_context(
         mode=mode,
@@ -33,6 +35,7 @@ def build_translation_context(
         abbreviation_entries=abbreviation_entries,
         retrieval_entries=retrieval_entries,
         engine_profile=resolve_engine_profile(model=model, base_url=base_url),
+        timeout_policy=timeout_policy,
     )
 
 
@@ -46,6 +49,7 @@ def build_translation_context_from_policy(
     retrieval_entries: list[RetrievalEvidence] | None = None,
     model: str = "",
     base_url: str = "",
+    timeout_policy: TimeoutPolicy | None = None,
 ) -> TranslationControlContext:
     extra_guidance_parts: list[str] = []
     if extra_guidance.strip():
@@ -68,6 +72,7 @@ def build_translation_context_from_policy(
         retrieval_entries=retrieval_entries,
         model=model,
         base_url=base_url,
+        timeout_policy=timeout_policy,
     )
 
 

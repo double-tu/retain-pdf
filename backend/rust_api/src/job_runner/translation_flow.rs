@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::Path;
 
 use anyhow::{anyhow, Result};
@@ -7,7 +8,9 @@ use crate::models::{now_iso, JobRuntimeState, JobSnapshot, JobStatusKind};
 use crate::storage_paths::build_job_paths;
 use crate::AppState;
 
-use super::commands::{build_ocr_command, build_translate_only_command};
+use super::commands::{
+    build_ocr_command, build_translate_from_ocr_command, build_translate_only_command,
+};
 use super::ocr_flow::{execute_ocr_job, sync_parent_with_ocr_child};
 use super::{
     attach_job_paths, build_render_only_command, clear_job_failure, execute_process_job,
@@ -28,10 +31,73 @@ pub(super) async fn run_translate_only_job_with_ocr(
     run_job_with_ocr(state, parent_job, OcrContinuation::TranslateOnly).await
 }
 
+pub(super) async fn run_translation_job_from_artifacts(
+    state: AppState,
+    job: JobRuntimeState,
+) -> Result<JobRuntimeState> {
+    run_job_from_artifacts(state, job, OcrContinuation::FullPipeline).await
+}
+
+pub(super) async fn run_translate_only_job_from_artifacts(
+    state: AppState,
+    job: JobRuntimeState,
+) -> Result<JobRuntimeState> {
+    run_job_from_artifacts(state, job, OcrContinuation::TranslateOnly).await
+}
+
 #[derive(Clone, Copy)]
 enum OcrContinuation {
     FullPipeline,
     TranslateOnly,
+}
+
+fn copy_dir_contents(from_dir: &Path, to_dir: &Path) -> Result<()> {
+    if !from_dir.exists() {
+        return Ok(());
+    }
+    fs::create_dir_all(to_dir)?;
+    for entry in fs::read_dir(from_dir)? {
+        let entry = entry?;
+        let source_path = entry.path();
+        let target_path = to_dir.join(entry.file_name());
+        if entry.file_type()?.is_dir() {
+            copy_dir_contents(&source_path, &target_path)?;
+        } else {
+            if let Some(parent) = target_path.parent() {
+                fs::create_dir_all(parent)?;
+            }
+            fs::copy(&source_path, &target_path)?;
+        }
+    }
+    Ok(())
+}
+
+fn cleanup_retry_source_intermediates(
+    state: &AppState,
+    source_job: &JobRuntimeState,
+    resumed_job_id: &str,
+) -> Result<()> {
+    if source_job.job_id == resumed_job_id {
+        return Ok(());
+    }
+    if !matches!(source_job.status, JobStatusKind::Failed | JobStatusKind::Canceled) {
+        return Ok(());
+    }
+    let Some(translations_dir_raw) = source_job
+        .artifacts
+        .as_ref()
+        .and_then(|artifacts| artifacts.translations_dir.as_deref())
+    else {
+        return Ok(());
+    };
+    let translations_dir = crate::storage_paths::resolve_data_path(
+        &state.config.data_root,
+        translations_dir_raw,
+    )?;
+    if translations_dir.exists() {
+        fs::remove_dir_all(&translations_dir)?;
+    }
+    Ok(())
 }
 
 async fn run_job_with_ocr(
@@ -171,6 +237,109 @@ async fn run_job_with_ocr(
             .await
         }
     }
+}
+
+async fn run_job_from_artifacts(
+    state: AppState,
+    mut job: JobRuntimeState,
+    continuation: OcrContinuation,
+) -> Result<JobRuntimeState> {
+    let source_job_id = job
+        .request_payload
+        .source
+        .artifact_job_id
+        .trim()
+        .to_string();
+    if source_job_id.is_empty() {
+        return Err(anyhow!("resume workflow requires source.artifact_job_id"));
+    }
+    let source_job = state.db.get_job(&source_job_id)?.into_runtime();
+    let source_artifacts = source_job
+        .artifacts
+        .as_ref()
+        .ok_or_else(|| anyhow!("artifact source job has no artifacts: {source_job_id}"))?;
+    let normalized_path = source_artifacts
+        .normalized_document_json
+        .as_deref()
+        .ok_or_else(|| anyhow!("artifact source job is missing normalized_document_json: {source_job_id}"))
+        .and_then(|raw| crate::storage_paths::resolve_data_path(&state.config.data_root, raw))?;
+    let source_pdf_path = source_artifacts
+        .source_pdf
+        .as_deref()
+        .ok_or_else(|| anyhow!("artifact source job is missing source_pdf: {source_job_id}"))
+        .and_then(|raw| crate::storage_paths::resolve_data_path(&state.config.data_root, raw))?;
+    let layout_json_path = source_artifacts
+        .layout_json
+        .as_deref()
+        .map(|raw| crate::storage_paths::resolve_data_path(&state.config.data_root, raw))
+        .transpose()?;
+    let previous_translations_dir = source_artifacts
+        .translations_dir
+        .as_deref()
+        .map(|raw| crate::storage_paths::resolve_data_path(&state.config.data_root, raw))
+        .transpose()?;
+
+    let job_paths = build_job_paths(&state.config.output_root, &job.job_id)?;
+    attach_job_paths(&mut job, &job_paths);
+    let artifacts = job.artifacts.get_or_insert_with(crate::models::JobArtifacts::default);
+    artifacts.source_pdf = source_artifacts.source_pdf.clone();
+    artifacts.layout_json = source_artifacts.layout_json.clone();
+    artifacts.normalized_document_json = source_artifacts.normalized_document_json.clone();
+    artifacts.normalization_report_json = source_artifacts.normalization_report_json.clone();
+    artifacts.schema_version = source_artifacts.schema_version.clone();
+
+    if let Some(previous_dir) = previous_translations_dir.as_deref() {
+        if previous_dir.exists() {
+            copy_dir_contents(previous_dir, &job_paths.translated_dir)?;
+            record_custom_runtime_event(
+                &state,
+                &job,
+                "info",
+                "resume_payload_restored",
+                "已恢复上次翻译中间产物，继续处理未完成项",
+                Some(serde_json::json!({
+                    "source_job_id": source_job_id,
+                    "restored_from": previous_dir,
+                })),
+            );
+        }
+    }
+
+    job.command = match continuation {
+        OcrContinuation::TranslateOnly => build_translate_only_command(
+            state.config.as_ref(),
+            &job.request_payload,
+            &job_paths,
+            &normalized_path,
+            &source_pdf_path,
+            layout_json_path.as_deref(),
+        ),
+        OcrContinuation::FullPipeline => build_translate_from_ocr_command(
+            state.config.as_ref(),
+            &job.request_payload,
+            &job_paths,
+            &normalized_path,
+            &source_pdf_path,
+            layout_json_path.as_deref(),
+        ),
+    };
+    job.status = JobStatusKind::Running;
+    job.started_at = Some(now_iso());
+    job.updated_at = now_iso();
+    job.stage = Some("translating".to_string());
+    job.stage_detail = Some(match continuation {
+        OcrContinuation::TranslateOnly => "正在基于已有 OCR/翻译产物继续翻译".to_string(),
+        OcrContinuation::FullPipeline => "正在基于已有 OCR/翻译产物继续翻译并渲染".to_string(),
+    });
+    clear_job_failure(&mut job);
+    sync_runtime_state(&mut job);
+    persist_runtime_job(&state, &job)?;
+
+    let finished_job = execute_process_job(state.clone(), job, &[]).await?;
+    if matches!(finished_job.status, JobStatusKind::Succeeded) {
+        let _ = cleanup_retry_source_intermediates(&state, &source_job, &finished_job.job_id);
+    }
+    Ok(finished_job)
 }
 
 async fn run_render_stage_after_translation(

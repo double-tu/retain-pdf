@@ -1,3 +1,4 @@
+use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
@@ -8,7 +9,7 @@ use tokio::io::AsyncWriteExt;
 use tokio::sync::Mutex;
 
 use crate::error::AppError;
-use crate::models::WorkflowKind;
+use crate::models::{JobStatusKind, WorkflowKind};
 use crate::models::{
     build_job_id, now_iso, CreateJobInput, JobSnapshot, ResolvedJobSpec, UploadRecord,
 };
@@ -23,6 +24,7 @@ use crate::services::jobs::{
 };
 use crate::config::AppConfig;
 use crate::AppState;
+use crate::job_events::record_custom_job_event;
 
 #[derive(Debug)]
 pub struct UploadedPdfInput {
@@ -165,6 +167,99 @@ fn build_render_job_snapshot(
         },
         JobInit::render_default(),
     )
+}
+
+fn copy_dir_contents(from_dir: &Path, to_dir: &Path) -> Result<(), AppError> {
+    if !from_dir.exists() {
+        return Ok(());
+    }
+    fs::create_dir_all(to_dir).map_err(AppError::from)?;
+    for entry in fs::read_dir(from_dir).map_err(AppError::from)? {
+        let entry = entry.map_err(AppError::from)?;
+        let source_path = entry.path();
+        let target_path = to_dir.join(entry.file_name());
+        if entry.file_type().map_err(AppError::from)?.is_dir() {
+            copy_dir_contents(&source_path, &target_path)?;
+        } else {
+            if let Some(parent) = target_path.parent() {
+                fs::create_dir_all(parent).map_err(AppError::from)?;
+            }
+            fs::copy(&source_path, &target_path).map_err(AppError::from)?;
+        }
+    }
+    Ok(())
+}
+
+pub fn retry_translation_job(
+    state: &AppState,
+    source_job_id: &str,
+) -> Result<JobSnapshot, AppError> {
+    let ctx = CreationContext::from_state(state);
+    let source_job = ctx
+        .db
+        .get_job(source_job_id)
+        .map_err(|_| AppError::not_found(format!("job not found: {source_job_id}")))?;
+    if !matches!(source_job.workflow, WorkflowKind::Translate | WorkflowKind::Mineru) {
+        return Err(AppError::bad_request(
+            "only translate/mineru jobs support retry-resume",
+        ));
+    }
+    if !matches!(source_job.status, JobStatusKind::Failed | JobStatusKind::Canceled) {
+        return Err(AppError::conflict(
+            "only failed or canceled jobs can be retried",
+        ));
+    }
+    let source_artifacts = source_job
+        .artifacts
+        .as_ref()
+        .ok_or_else(|| AppError::conflict("source job has no reusable artifacts"))?;
+    if source_artifacts.normalized_document_json.as_deref().unwrap_or("").trim().is_empty() {
+        return Err(AppError::conflict(
+            "source job is missing normalized_document_json",
+        ));
+    }
+    if source_artifacts.source_pdf.as_deref().unwrap_or("").trim().is_empty() {
+        return Err(AppError::conflict("source job is missing source_pdf"));
+    }
+
+    let mut input = CreateJobInput::default();
+    input.workflow = source_job.workflow.clone();
+    input.source.upload_id = source_job.request_payload.source.upload_id.clone();
+    input.source.artifact_job_id = source_job.job_id.clone();
+    input.ocr = source_job.request_payload.ocr.clone();
+    input.translation = source_job.request_payload.translation.clone();
+    input.render = source_job.request_payload.render.clone();
+    input.runtime.timeout_seconds = source_job.request_payload.runtime.timeout_seconds;
+
+    let mut job = match input.workflow {
+        WorkflowKind::Translate => build_translate_only_job_snapshot(&ctx, &input)?,
+        WorkflowKind::Mineru => build_full_pipeline_job_snapshot(&ctx, &input)?,
+        _ => unreachable!(),
+    };
+    job.stage_detail = Some("重试任务已创建，准备复用已有 OCR/翻译产物".to_string());
+    if let (Some(src_dir_raw), Some(target_job_root)) = (
+        source_artifacts.translations_dir.as_deref(),
+        job.artifacts.as_ref().and_then(|artifacts| artifacts.job_root.as_deref()),
+    ) {
+        let src_dir = crate::storage_paths::resolve_data_path(&ctx.config.data_root, src_dir_raw)
+            .map_err(|err| AppError::internal(err.to_string()))?;
+        let target_root = crate::storage_paths::resolve_data_path(&ctx.config.data_root, target_job_root)
+            .map_err(|err| AppError::internal(err.to_string()))?;
+        let target_translated_dir = target_root.join("translated");
+        copy_dir_contents(&src_dir, &target_translated_dir)?;
+    }
+    record_custom_job_event(
+        state,
+        &job,
+        "info",
+        "resume_retry_created",
+        "已创建断点续跑任务",
+        Some(serde_json::json!({
+            "source_job_id": source_job.job_id,
+            "workflow": format!("{:?}", source_job.workflow).to_ascii_lowercase(),
+        })),
+    );
+    start_job_execution(state, job)
 }
 
 pub fn create_ocr_job(

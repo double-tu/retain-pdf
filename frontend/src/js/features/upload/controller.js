@@ -19,6 +19,14 @@ export function mountUploadFeature({
   refreshSubmitControls,
   workflowNeedsUpload,
 }) {
+  function formatMaxSize(bytes) {
+    if (!Number.isFinite(bytes) || bytes <= 0) {
+      return "";
+    }
+    const mb = bytes / 1024 / 1024;
+    return Number.isInteger(mb) ? `${mb}MB` : `${mb.toFixed(1)}MB`;
+  }
+
   function normalizePageRangeValue(startValue = "", endValue = "") {
     const start = startValue.trim();
     const end = endValue.trim();
@@ -160,7 +168,11 @@ export function mountUploadFeature({
       return;
     }
     if (file.size > frontMaxBytes) {
-      setText("error-box", "当前前端限制为 100MB 以内 PDF");
+      const maxSizeText = formatMaxSize(frontMaxBytes);
+      setText(
+        "error-box",
+        maxSizeText ? `当前前端限制为 ${maxSizeText} 以内 PDF` : "当前前端限制了 PDF 大小",
+      );
       setText("upload-status", "文件超出大小限制");
       $("upload-status")?.classList.remove("hidden");
       return;

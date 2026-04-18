@@ -9,6 +9,7 @@ from services.translation.ocr.json_extractor import get_pages
 from services.translation.policy.reference_section import resolve_reference_cutoff
 from services.translation.policy.rule_profiles import DEFAULT_RULE_PROFILE_NAME
 from services.translation.policy.rule_profiles import build_rule_profile_context
+from services.translation.llm.domain_context import extract_document_outline_preview
 
 
 @dataclass(frozen=True)
@@ -186,6 +187,8 @@ def build_book_translation_policy_config(
     rule_profile_name: str = DEFAULT_RULE_PROFILE_NAME,
     custom_rules_text: str = "",
     enable_domain_inference: bool | None = None,
+    domain_context_pages: int | None = None,
+    domain_context_max_chars: int | None = None,
 ) -> TranslationPolicyConfig:
     sci_cutoff_page_idx = None
     sci_cutoff_block_idx = None
@@ -196,7 +199,12 @@ def build_book_translation_policy_config(
     if infer_domain and source_pdf_path is not None:
         from services.translation.llm.domain_context import infer_domain_context
 
-        preview_text = extract_ocr_preview_text(data, max_pages=2)
+        preview_page_limit = max(1, int(domain_context_pages)) if domain_context_pages is not None else 5
+        preview_text = extract_ocr_preview_text(data, max_pages=preview_page_limit)
+        preview_max_chars = max(1000, int(domain_context_max_chars)) if domain_context_max_chars is not None else 16000
+        if len(preview_text) > preview_max_chars:
+            preview_text = preview_text[:preview_max_chars].rstrip() + "\n[truncated]"
+        outline_text = extract_document_outline_preview(data, max_chars=domain_context_max_chars)
         try:
             domain_context = infer_domain_context(
                 source_pdf_path=source_pdf_path,
@@ -204,7 +212,10 @@ def build_book_translation_policy_config(
                 model=model,
                 base_url=base_url,
                 preview_text_fallback=preview_text,
+                outline_text=outline_text,
                 output_dir=output_dir,
+                preview_pages=domain_context_pages,
+                preview_max_chars=domain_context_max_chars,
             )
         except Exception as exc:
             print(f"sci domain inference skipped: {type(exc).__name__}: {exc}", flush=True)
@@ -213,6 +224,7 @@ def build_book_translation_policy_config(
                 "summary": "",
                 "translation_guidance": "",
                 "preview_text": preview_text,
+                "outline_text": outline_text,
             }
 
     return build_translation_policy_config(

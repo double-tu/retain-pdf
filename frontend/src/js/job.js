@@ -169,8 +169,10 @@ export function resolveJobActions(job) {
     || artifacts.markdown_ready
     || job.markdown_ready
   );
+  const retryable = job.failure?.retryable ?? job.failure_diagnostic?.retryable;
   return {
     cancelEnabled: Boolean(actions.cancel?.enabled ?? artifactActions.cancel?.enabled ?? (job.status === "queued" || job.status === "running")),
+    retryEnabled: Boolean(job.status === "failed" && retryable === true && job.job_id),
     bundleEnabled,
     pdfEnabled,
     markdownJsonEnabled,
@@ -181,6 +183,14 @@ export function resolveJobActions(job) {
       actions.cancel_url,
       links.cancel_url,
       links.cancel_path,
+    )),
+    retry: toAbsoluteUrl(firstNonEmpty(
+      actions.retry?.url,
+      artifactActions.retry?.url,
+      actions.retry_url,
+      links.retry_url,
+      links.retry_path,
+      job.job_id ? `/api/v1/jobs/${job.job_id}/retry` : "",
     )),
     bundle: toAbsoluteUrl(firstNonEmpty(
       actions.download_bundle?.url,

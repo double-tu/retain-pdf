@@ -3,6 +3,7 @@ use crate::models::{ApiResponse, JobStatusKind, JobSubmissionView};
 use crate::routes::job_helpers::ensure_cancelable;
 use crate::services::jobs::{
     cancel_job as cancel_job_service, load_job_or_404, load_ocr_job_or_404,
+    retry_translation_job,
 };
 use crate::AppState;
 use axum::extract::{Path as AxumPath, State};
@@ -31,4 +32,13 @@ pub async fn cancel_job(
     ensure_cancelable(&job)?;
     let job = cancel_job_service(&state, &job_id, false).await?;
     build_job_submission_response(&state, &headers, &job, JobStatusKind::Canceled)
+}
+
+pub async fn retry_job(
+    State(state): State<AppState>,
+    AxumPath(job_id): AxumPath<String>,
+    headers: HeaderMap,
+) -> Result<Json<ApiResponse<JobSubmissionView>>, AppError> {
+    let job = retry_translation_job(&state, &job_id)?;
+    build_job_submission_response(&state, &headers, &job, JobStatusKind::Queued)
 }

@@ -10,7 +10,8 @@ mod query;
 pub use control::{cancel_job, wait_for_terminal_job};
 pub use creation::{
     build_translation_bundle_artifact, create_ocr_job, create_ocr_job_from_upload,
-    create_translation_job, store_pdf_upload, BundleArtifact, UploadedPdfInput,
+    create_translation_job, retry_translation_job, store_pdf_upload, BundleArtifact,
+    UploadedPdfInput,
 };
 pub use presentation::{
     build_job_artifact_links_view, build_job_artifact_manifest_view, build_job_detail_view,

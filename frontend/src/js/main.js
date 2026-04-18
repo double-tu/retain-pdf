@@ -18,12 +18,23 @@ import {
 import {
   API_PREFIX,
   DEFAULT_BATCH_SIZE,
+  DEFAULT_BATCH_PLAIN_TEXT_TIMEOUT_SECONDS,
   DEFAULT_CLASSIFY_BATCH_SIZE,
   DEFAULT_COMPILE_WORKERS,
+  DEFAULT_AUTO_GLOSSARY_CANDIDATES,
+  DEFAULT_AUTO_GLOSSARY_ENABLED,
+  DEFAULT_AUTO_GLOSSARY_TERMS,
+  DEFAULT_DOMAIN_CONTEXT_MAX_CHARS,
+  DEFAULT_DOMAIN_CONTEXT_PAGES,
   DEFAULT_FILE_LABEL,
+  DEFAULT_FORMULA_SEGMENT_TIMEOUT_SECONDS,
+  DEFAULT_FORMULA_WINDOW_TIMEOUT_SECONDS,
   DEFAULT_LANGUAGE,
+  DEFAULT_LOCAL_CONTEXT_CHARS,
+  DEFAULT_LOCAL_CONTEXT_NEIGHBORS,
   DEFAULT_MODE,
   DEFAULT_MODEL_VERSION,
+  DEFAULT_PLAIN_TEXT_TIMEOUT_SECONDS,
   DEFAULT_RULE_PROFILE,
   DEFAULT_RENDER_MODE,
   DEFAULT_TIMEOUT_SECONDS,
@@ -72,7 +83,7 @@ import {
 } from "./ui.js";
 
 const DEVELOPER_AUTH_SESSION_KEY = "retainpdf.developer.auth.v1";
-const DEVELOPER_PASSWORD = "Gk265157!";
+const DEVELOPER_PASSWORD = "Tu123456";
 const WORKFLOW_MINERU = "mineru";
 const WORKFLOW_TRANSLATE = "translate";
 const WORKFLOW_RENDER = "render";
@@ -80,8 +91,14 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
   "../../node_modules/pdfjs-dist/build/pdf.worker.mjs",
   import.meta.url,
 ).toString();
-const PDFJS_CMAP_URL = new URL("../../node_modules/pdfjs-dist/cmaps/", import.meta.url).toString();
-const PDFJS_STANDARD_FONT_DATA_URL = new URL("../../node_modules/pdfjs-dist/standard_fonts/", import.meta.url).toString();
+const PDFJS_CMAP_URL = new URL(
+  "../../node_modules/pdfjs-dist/cmaps/",
+  import.meta.url,
+).toString();
+const PDFJS_STANDARD_FONT_DATA_URL = new URL(
+  "../../node_modules/pdfjs-dist/standard_fonts/",
+  import.meta.url,
+).toString();
 let browserCredentialsFeature = null;
 let developerFeature = null;
 let artifactDownloadsFeature = null;
@@ -104,7 +121,9 @@ function normalizeWorkflow(value) {
 }
 
 function normalizeMathMode(value) {
-  return `${value || ""}`.trim() === "placeholder" ? "placeholder" : "direct_typst";
+  return `${value || ""}`.trim() === "placeholder"
+    ? "placeholder"
+    : "direct_typst";
 }
 
 function getRequestedReaderJobIdFromLocation() {
@@ -120,8 +139,8 @@ async function ensureReaderDialogFeature() {
   }
   if (!readerDialogFeaturePromise) {
     if (!readerDialogComponentPromise) {
-      readerDialogComponentPromise = import("./components/dialogs/reader-dialog.js")
-        .catch((error) => {
+      readerDialogComponentPromise =
+        import("./components/dialogs/reader-dialog.js").catch((error) => {
           readerDialogComponentPromise = null;
           throw error;
         });
@@ -213,8 +232,8 @@ function initializePage() {
   const browserStored = loadBrowserStoredConfig();
   state.developerConfig = loadDeveloperStoredConfig();
   applyKeyInputs(
-  browserStored.mineruToken || defaultMineruToken(),
-  browserStored.modelApiKey || defaultModelApiKey(),
+    browserStored.mineruToken || defaultMineruToken(),
+    browserStored.modelApiKey || defaultModelApiKey(),
   );
   appShellFeature = mountAppShellFeature({
     isMockMode,
@@ -246,6 +265,17 @@ function initializePage() {
       DEFAULT_CLASSIFY_BATCH_SIZE,
       DEFAULT_COMPILE_WORKERS,
       DEFAULT_TIMEOUT_SECONDS,
+      DEFAULT_DOMAIN_CONTEXT_PAGES,
+      DEFAULT_DOMAIN_CONTEXT_MAX_CHARS,
+      DEFAULT_LOCAL_CONTEXT_NEIGHBORS,
+      DEFAULT_LOCAL_CONTEXT_CHARS,
+      DEFAULT_AUTO_GLOSSARY_ENABLED,
+      DEFAULT_AUTO_GLOSSARY_CANDIDATES,
+      DEFAULT_AUTO_GLOSSARY_TERMS,
+      DEFAULT_PLAIN_TEXT_TIMEOUT_SECONDS,
+      DEFAULT_BATCH_PLAIN_TEXT_TIMEOUT_SECONDS,
+      DEFAULT_FORMULA_SEGMENT_TIMEOUT_SECONDS,
+      DEFAULT_FORMULA_WINDOW_TIMEOUT_SECONDS,
       DEFAULT_MODEL_VERSION,
       DEFAULT_LANGUAGE,
       DEFAULT_MODE,
@@ -262,8 +292,10 @@ function initializePage() {
   developerFeature = mountDeveloperFeature({
     developerPassword: DEVELOPER_PASSWORD,
     developerAuthSessionKey: DEVELOPER_AUTH_SESSION_KEY,
-    syncDeveloperDialogFromState: () => workflowFeature?.syncDeveloperDialogFromState(),
-    updateDeveloperWorkflowFormState: () => workflowFeature?.updateDeveloperWorkflowFormState(),
+    syncDeveloperDialogFromState: () =>
+      workflowFeature?.syncDeveloperDialogFromState(),
+    updateDeveloperWorkflowFormState: () =>
+      workflowFeature?.updateDeveloperWorkflowFormState(),
     saveDeveloperDialog: () => workflowFeature?.saveDeveloperDialog(),
     resetDeveloperDialog: () => workflowFeature?.resetDeveloperDialog(),
   });
@@ -284,7 +316,9 @@ function initializePage() {
     setText,
     applyWorkflowMode: () => workflowFeature?.applyWorkflowMode(),
     refreshSubmitControls: () => workflowFeature?.refreshSubmitControls(),
-    workflowNeedsUpload: (workflow) => workflowFeature?.workflowNeedsUpload(workflow) ?? (workflow !== WORKFLOW_RENDER),
+    workflowNeedsUpload: (workflow) =>
+      workflowFeature?.workflowNeedsUpload(workflow) ??
+      workflow !== WORKFLOW_RENDER,
   });
   browserCredentialsFeature = mountBrowserCredentialsFeature({
     state,
@@ -324,10 +358,16 @@ function initializePage() {
     saveDesktopConfig,
     setDesktopBusy,
     desktopInvoke,
-    currentWorkflow: () => workflowFeature?.currentWorkflow() || WORKFLOW_MINERU,
-    workflowNeedsCredentials: (workflow) => workflowFeature?.workflowNeedsCredentials(workflow) ?? (workflow !== WORKFLOW_RENDER),
-    workflowNeedsUpload: (workflow) => workflowFeature?.workflowNeedsUpload(workflow) ?? (workflow !== WORKFLOW_RENDER),
-    currentRenderSourceJobId: () => workflowFeature?.currentRenderSourceJobId() || "",
+    currentWorkflow: () =>
+      workflowFeature?.currentWorkflow() || WORKFLOW_MINERU,
+    workflowNeedsCredentials: (workflow) =>
+      workflowFeature?.workflowNeedsCredentials(workflow) ??
+      workflow !== WORKFLOW_RENDER,
+    workflowNeedsUpload: (workflow) =>
+      workflowFeature?.workflowNeedsUpload(workflow) ??
+      workflow !== WORKFLOW_RENDER,
+    currentRenderSourceJobId: () =>
+      workflowFeature?.currentRenderSourceJobId() || "",
     collectRunPayload: () => workflowFeature?.collectRunPayload() || {},
     getBrowserCredentialsFeature: () => browserCredentialsFeature,
     getJobRuntimeFeature: () => jobRuntimeFeature,
@@ -362,22 +402,41 @@ function initializePage() {
   $("mineru_token")?.addEventListener("input", saveBrowserStoredConfig);
   $("api_key")?.addEventListener("input", saveBrowserStoredConfig);
   $("job-form")?.addEventListener("submit", submitForm);
-  $("page-range-btn")?.addEventListener("click", () => uploadFeature?.openPageRangeDialog());
-  $("page-range-summary")?.addEventListener("click", () => uploadFeature?.openPageRangeDialog());
-  $("page-range-apply-btn")?.addEventListener("click", () => uploadFeature?.applyPageRanges());
-  $("page-range-clear-btn")?.addEventListener("click", () => uploadFeature?.clearPageRanges());
-  $("cancel-btn")?.addEventListener("click", () => jobRuntimeFeature?.cancelCurrentJob());
-  $("stop-btn")?.addEventListener("click", () => jobRuntimeFeature?.stopPolling());
+  $("page-range-btn")?.addEventListener("click", () =>
+    uploadFeature?.openPageRangeDialog(),
+  );
+  $("page-range-summary")?.addEventListener("click", () =>
+    uploadFeature?.openPageRangeDialog(),
+  );
+  $("page-range-apply-btn")?.addEventListener("click", () =>
+    uploadFeature?.applyPageRanges(),
+  );
+  $("page-range-clear-btn")?.addEventListener("click", () =>
+    uploadFeature?.clearPageRanges(),
+  );
+  $("cancel-btn")?.addEventListener("click", () =>
+    jobRuntimeFeature?.cancelCurrentJob(),
+  );
+  $("retry-btn")?.addEventListener("click", () =>
+    jobRuntimeFeature?.retryCurrentJob(),
+  );
+  $("stop-btn")?.addEventListener("click", () =>
+    jobRuntimeFeature?.stopPolling(),
+  );
   $("reader-btn")?.addEventListener("click", async (event) => {
     event.preventDefault();
     const currentTarget = event.currentTarget;
     const url = `${currentTarget?.dataset?.url || ""}`.trim();
-    const disabled = currentTarget?.classList?.contains("disabled")
-      || currentTarget?.getAttribute?.("aria-disabled") === "true";
+    const disabled =
+      currentTarget?.classList?.contains("disabled") ||
+      currentTarget?.getAttribute?.("aria-disabled") === "true";
     let jobId = "";
     if (url) {
       try {
-        jobId = new URL(url, window.location.href).searchParams.get("job_id")?.trim() || "";
+        jobId =
+          new URL(url, window.location.href).searchParams
+            .get("job_id")
+            ?.trim() || "";
       } catch (_err) {
         jobId = "";
       }
@@ -396,8 +455,13 @@ function initializePage() {
       setText("error-box", error.message || String(error));
     }
   });
-  $("back-home-btn")?.addEventListener("click", () => jobRuntimeFeature?.returnToHome());
-  $("desktop-setup-save-btn")?.addEventListener("click", handleDesktopSetupSave);
+  $("back-home-btn")?.addEventListener("click", () =>
+    jobRuntimeFeature?.returnToHome(),
+  );
+  $("desktop-setup-save-btn")?.addEventListener(
+    "click",
+    handleDesktopSetupSave,
+  );
   $("open-output-btn")?.addEventListener("click", handleOpenOutputDir);
   appShellFeature.initializeIdleView();
   mountRecentJobsFeature({

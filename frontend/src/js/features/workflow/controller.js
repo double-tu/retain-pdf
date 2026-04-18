@@ -22,6 +22,17 @@ export function mountWorkflowFeature({
     DEFAULT_CLASSIFY_BATCH_SIZE,
     DEFAULT_COMPILE_WORKERS,
     DEFAULT_TIMEOUT_SECONDS,
+    DEFAULT_DOMAIN_CONTEXT_PAGES,
+    DEFAULT_DOMAIN_CONTEXT_MAX_CHARS,
+    DEFAULT_LOCAL_CONTEXT_NEIGHBORS,
+    DEFAULT_LOCAL_CONTEXT_CHARS,
+    DEFAULT_AUTO_GLOSSARY_ENABLED,
+    DEFAULT_AUTO_GLOSSARY_CANDIDATES,
+    DEFAULT_AUTO_GLOSSARY_TERMS,
+    DEFAULT_PLAIN_TEXT_TIMEOUT_SECONDS,
+    DEFAULT_BATCH_PLAIN_TEXT_TIMEOUT_SECONDS,
+    DEFAULT_FORMULA_SEGMENT_TIMEOUT_SECONDS,
+    DEFAULT_FORMULA_WINDOW_TIMEOUT_SECONDS,
     DEFAULT_MODEL_VERSION,
     DEFAULT_LANGUAGE,
     DEFAULT_MODE,
@@ -36,6 +47,24 @@ export function mountWorkflowFeature({
   let applyWorkflowModeRef = null;
   const hasAppliedPageRange = () => workflowNeedsUpload() && `${state.appliedPageRange || ""}`.trim().length > 0;
 
+  function numberOrDefault(value, fallback) {
+    if (value === undefined || value === null || value === "") {
+      return fallback;
+    }
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : fallback;
+  }
+
+  function booleanOrDefault(value, fallback) {
+    if (value === undefined || value === null || value === "") {
+      return fallback;
+    }
+    if (typeof value === "string") {
+      return value.trim().toLowerCase() !== "false";
+    }
+    return Boolean(value);
+  }
+
   function developerConfigWithDefaults() {
     const saved = state.developerConfig || {};
     return {
@@ -44,11 +73,22 @@ export function mountWorkflowFeature({
       mathMode: normalizeMathMode(saved.mathMode),
       model: saved.model || defaultModelName(),
       baseUrl: saved.baseUrl || defaultModelBaseUrl(),
-      workers: Number(saved.workers || DEFAULT_WORKERS),
-      batchSize: Number(saved.batchSize || DEFAULT_BATCH_SIZE),
-      classifyBatchSize: Number(saved.classifyBatchSize || DEFAULT_CLASSIFY_BATCH_SIZE),
-      compileWorkers: Number(saved.compileWorkers || DEFAULT_COMPILE_WORKERS),
-      timeoutSeconds: Number(saved.timeoutSeconds || DEFAULT_TIMEOUT_SECONDS),
+      workers: numberOrDefault(saved.workers, DEFAULT_WORKERS),
+      batchSize: numberOrDefault(saved.batchSize, DEFAULT_BATCH_SIZE),
+      classifyBatchSize: numberOrDefault(saved.classifyBatchSize, DEFAULT_CLASSIFY_BATCH_SIZE),
+      compileWorkers: numberOrDefault(saved.compileWorkers, DEFAULT_COMPILE_WORKERS),
+      timeoutSeconds: numberOrDefault(saved.timeoutSeconds, DEFAULT_TIMEOUT_SECONDS),
+      domainContextPages: numberOrDefault(saved.domainContextPages, DEFAULT_DOMAIN_CONTEXT_PAGES),
+      domainContextMaxChars: numberOrDefault(saved.domainContextMaxChars, DEFAULT_DOMAIN_CONTEXT_MAX_CHARS),
+      localContextNeighbors: numberOrDefault(saved.localContextNeighbors, DEFAULT_LOCAL_CONTEXT_NEIGHBORS),
+      localContextChars: numberOrDefault(saved.localContextChars, DEFAULT_LOCAL_CONTEXT_CHARS),
+      autoGlossaryEnabled: booleanOrDefault(saved.autoGlossaryEnabled, DEFAULT_AUTO_GLOSSARY_ENABLED),
+      autoGlossaryCandidates: numberOrDefault(saved.autoGlossaryCandidates, DEFAULT_AUTO_GLOSSARY_CANDIDATES),
+      autoGlossaryTerms: numberOrDefault(saved.autoGlossaryTerms, DEFAULT_AUTO_GLOSSARY_TERMS),
+      plainTextTimeoutSeconds: numberOrDefault(saved.plainTextTimeoutSeconds, DEFAULT_PLAIN_TEXT_TIMEOUT_SECONDS),
+      batchPlainTextTimeoutSeconds: numberOrDefault(saved.batchPlainTextTimeoutSeconds, DEFAULT_BATCH_PLAIN_TEXT_TIMEOUT_SECONDS),
+      formulaSegmentTimeoutSeconds: numberOrDefault(saved.formulaSegmentTimeoutSeconds, DEFAULT_FORMULA_SEGMENT_TIMEOUT_SECONDS),
+      formulaWindowTimeoutSeconds: numberOrDefault(saved.formulaWindowTimeoutSeconds, DEFAULT_FORMULA_WINDOW_TIMEOUT_SECONDS),
       translateTitles: saved.translateTitles !== false,
     };
   }
@@ -64,6 +104,19 @@ export function mountWorkflowFeature({
     $("developer-classify-batch-size").value = `${config.classifyBatchSize}`;
     $("developer-compile-workers").value = `${config.compileWorkers}`;
     $("developer-timeout-seconds").value = `${config.timeoutSeconds}`;
+    $("developer-domain-context-pages").value = `${config.domainContextPages}`;
+    $("developer-domain-context-max-chars").value = `${config.domainContextMaxChars}`;
+    $("developer-local-context-neighbors").value = `${config.localContextNeighbors}`;
+    $("developer-local-context-chars").value = `${config.localContextChars}`;
+    $("developer-auto-glossary-candidates").value = `${config.autoGlossaryCandidates}`;
+    $("developer-auto-glossary-terms").value = `${config.autoGlossaryTerms}`;
+    $("developer-plain-text-timeout-seconds").value = `${config.plainTextTimeoutSeconds}`;
+    $("developer-batch-plain-text-timeout-seconds").value = `${config.batchPlainTextTimeoutSeconds}`;
+    $("developer-formula-segment-timeout-seconds").value = `${config.formulaSegmentTimeoutSeconds}`;
+    $("developer-formula-window-timeout-seconds").value = `${config.formulaWindowTimeoutSeconds}`;
+    if ($("developer-auto-glossary-enabled")) {
+      $("developer-auto-glossary-enabled").checked = !!config.autoGlossaryEnabled;
+    }
     updateDeveloperWorkflowFormState();
   }
 
@@ -232,11 +285,22 @@ export function mountWorkflowFeature({
       mathMode: currentConfig.mathMode,
       model: $("developer-model")?.value?.trim() || defaultModelName(),
       baseUrl: $("developer-base-url")?.value?.trim() || defaultModelBaseUrl(),
-      workers: Number($("developer-workers")?.value || DEFAULT_WORKERS),
-      batchSize: Number($("developer-batch-size")?.value || DEFAULT_BATCH_SIZE),
-      classifyBatchSize: Number($("developer-classify-batch-size")?.value || DEFAULT_CLASSIFY_BATCH_SIZE),
-      compileWorkers: Number($("developer-compile-workers")?.value || DEFAULT_COMPILE_WORKERS),
-      timeoutSeconds: Number($("developer-timeout-seconds")?.value || DEFAULT_TIMEOUT_SECONDS),
+      workers: numberOrDefault($("developer-workers")?.value, DEFAULT_WORKERS),
+      batchSize: numberOrDefault($("developer-batch-size")?.value, DEFAULT_BATCH_SIZE),
+      classifyBatchSize: numberOrDefault($("developer-classify-batch-size")?.value, DEFAULT_CLASSIFY_BATCH_SIZE),
+      compileWorkers: numberOrDefault($("developer-compile-workers")?.value, DEFAULT_COMPILE_WORKERS),
+      timeoutSeconds: numberOrDefault($("developer-timeout-seconds")?.value, DEFAULT_TIMEOUT_SECONDS),
+      domainContextPages: numberOrDefault($("developer-domain-context-pages")?.value, DEFAULT_DOMAIN_CONTEXT_PAGES),
+      domainContextMaxChars: numberOrDefault($("developer-domain-context-max-chars")?.value, DEFAULT_DOMAIN_CONTEXT_MAX_CHARS),
+      localContextNeighbors: numberOrDefault($("developer-local-context-neighbors")?.value, DEFAULT_LOCAL_CONTEXT_NEIGHBORS),
+      localContextChars: numberOrDefault($("developer-local-context-chars")?.value, DEFAULT_LOCAL_CONTEXT_CHARS),
+      autoGlossaryEnabled: !!$("developer-auto-glossary-enabled")?.checked,
+      autoGlossaryCandidates: numberOrDefault($("developer-auto-glossary-candidates")?.value, DEFAULT_AUTO_GLOSSARY_CANDIDATES),
+      autoGlossaryTerms: numberOrDefault($("developer-auto-glossary-terms")?.value, DEFAULT_AUTO_GLOSSARY_TERMS),
+      plainTextTimeoutSeconds: numberOrDefault($("developer-plain-text-timeout-seconds")?.value, DEFAULT_PLAIN_TEXT_TIMEOUT_SECONDS),
+      batchPlainTextTimeoutSeconds: numberOrDefault($("developer-batch-plain-text-timeout-seconds")?.value, DEFAULT_BATCH_PLAIN_TEXT_TIMEOUT_SECONDS),
+      formulaSegmentTimeoutSeconds: numberOrDefault($("developer-formula-segment-timeout-seconds")?.value, DEFAULT_FORMULA_SEGMENT_TIMEOUT_SECONDS),
+      formulaWindowTimeoutSeconds: numberOrDefault($("developer-formula-window-timeout-seconds")?.value, DEFAULT_FORMULA_WINDOW_TIMEOUT_SECONDS),
       translateTitles: currentConfig.translateTitles,
     };
     saveDeveloperStoredConfig(state.developerConfig);
@@ -282,6 +346,17 @@ export function mountWorkflowFeature({
         classify_batch_size: developerConfig.classifyBatchSize,
         rule_profile_name: DEFAULT_RULE_PROFILE,
         custom_rules_text: "",
+        domain_context_pages: developerConfig.domainContextPages,
+        domain_context_max_chars: developerConfig.domainContextMaxChars,
+        local_context_neighbors: developerConfig.localContextNeighbors,
+        local_context_chars: developerConfig.localContextChars,
+        auto_glossary_enabled: developerConfig.autoGlossaryEnabled,
+        auto_glossary_candidates: developerConfig.autoGlossaryCandidates,
+        auto_glossary_terms: developerConfig.autoGlossaryTerms,
+        plain_text_timeout_seconds: developerConfig.plainTextTimeoutSeconds,
+        batch_plain_text_timeout_seconds: developerConfig.batchPlainTextTimeoutSeconds,
+        formula_segment_timeout_seconds: developerConfig.formulaSegmentTimeoutSeconds,
+        formula_window_timeout_seconds: developerConfig.formulaWindowTimeoutSeconds,
         skip_title_translation: !developerConfig.translateTitles,
       };
       if (developerConfig.mathMode === "direct_typst") {

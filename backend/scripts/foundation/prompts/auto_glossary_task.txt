@@ -1,0 +1,11 @@
+请根据 domain_guidance、document_summary 和 candidates，筛选最值得作为全文术语表的条目。
+最多返回 max_terms 个条目。
+每个条目格式：
+{"source":"英文术语","target":"中文译法或需保留的原文","level":"preferred|preserve","note":"简短说明"}
+要求：
+- source 必须来自 candidates 的 term。
+- target 必须简洁，不要带解释性长句。
+- 多词术语优先于单个普通单词。
+- 缩写、软件名、模型名、文件名、代码名通常 preserve。
+- 不要收录 method/result/study/figure/table/value/data/analysis 等泛词，除非和其他词组成明确专业术语。
+- 不要收录明显参考文献标题、作者、期刊、出版社信息。

@@ -14,7 +14,7 @@ mod create;
 mod download;
 mod query;
 
-pub use control::{cancel_job, cancel_ocr_job};
+pub use control::{cancel_job, cancel_ocr_job, retry_job};
 pub use create::{create_job, create_ocr_job, translate_bundle};
 pub use download::{
     download_artifact_by_key, download_bundle, download_markdown, download_markdown_image,

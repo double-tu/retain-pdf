@@ -169,6 +169,17 @@ class TranslateStageParams:
     glossary_entries: list[dict[str, Any]]
     model: str
     base_url: str
+    domain_context_pages: int
+    domain_context_max_chars: int
+    local_context_neighbors: int
+    local_context_chars: int
+    auto_glossary_enabled: bool
+    auto_glossary_candidates: int
+    auto_glossary_terms: int
+    plain_text_timeout_seconds: int
+    batch_plain_text_timeout_seconds: int
+    formula_segment_timeout_seconds: int
+    formula_window_timeout_seconds: int
     credential_ref: str
 
 
@@ -233,6 +244,17 @@ class TranslateStageSpec:
             glossary_entries=glossary_entries,
             model=str(params_payload.get("model", "") or ""),
             base_url=str(params_payload.get("base_url", "") or ""),
+            domain_context_pages=int(params_payload.get("domain_context_pages", 5) or 5),
+            domain_context_max_chars=int(params_payload.get("domain_context_max_chars", 16000) or 16000),
+            local_context_neighbors=int(params_payload.get("local_context_neighbors", 1) or 1),
+            local_context_chars=int(params_payload.get("local_context_chars", 420) or 420),
+            auto_glossary_enabled=bool(params_payload.get("auto_glossary_enabled", True)),
+            auto_glossary_candidates=int(params_payload.get("auto_glossary_candidates", 100) or 100),
+            auto_glossary_terms=int(params_payload.get("auto_glossary_terms", 30) or 30),
+            plain_text_timeout_seconds=int(params_payload.get("plain_text_timeout_seconds", 90) or 90),
+            batch_plain_text_timeout_seconds=int(params_payload.get("batch_plain_text_timeout_seconds", 120) or 120),
+            formula_segment_timeout_seconds=int(params_payload.get("formula_segment_timeout_seconds", 120) or 120),
+            formula_window_timeout_seconds=int(params_payload.get("formula_window_timeout_seconds", 150) or 150),
             credential_ref=str(params_payload.get("credential_ref", "") or ""),
         )
         return cls(
@@ -389,6 +411,17 @@ class MineruStageTranslationParams:
     glossary_entries: list[dict[str, Any]]
     model: str
     base_url: str
+    domain_context_pages: int
+    domain_context_max_chars: int
+    local_context_neighbors: int
+    local_context_chars: int
+    auto_glossary_enabled: bool
+    auto_glossary_candidates: int
+    auto_glossary_terms: int
+    plain_text_timeout_seconds: int
+    batch_plain_text_timeout_seconds: int
+    formula_segment_timeout_seconds: int
+    formula_window_timeout_seconds: int
     credential_ref: str
 
 
@@ -481,6 +514,17 @@ class MineruStageSpec:
             glossary_entries=glossary_entries,
             model=str(translation_payload.get("model", "") or ""),
             base_url=str(translation_payload.get("base_url", "") or ""),
+            domain_context_pages=int(translation_payload.get("domain_context_pages", 5) or 5),
+            domain_context_max_chars=int(translation_payload.get("domain_context_max_chars", 16000) or 16000),
+            local_context_neighbors=int(translation_payload.get("local_context_neighbors", 1) or 1),
+            local_context_chars=int(translation_payload.get("local_context_chars", 420) or 420),
+            auto_glossary_enabled=bool(translation_payload.get("auto_glossary_enabled", True)),
+            auto_glossary_candidates=int(translation_payload.get("auto_glossary_candidates", 100) or 100),
+            auto_glossary_terms=int(translation_payload.get("auto_glossary_terms", 30) or 30),
+            plain_text_timeout_seconds=int(translation_payload.get("plain_text_timeout_seconds", 90) or 90),
+            batch_plain_text_timeout_seconds=int(translation_payload.get("batch_plain_text_timeout_seconds", 120) or 120),
+            formula_segment_timeout_seconds=int(translation_payload.get("formula_segment_timeout_seconds", 120) or 120),
+            formula_window_timeout_seconds=int(translation_payload.get("formula_window_timeout_seconds", 150) or 150),
             credential_ref=str(translation_payload.get("credential_ref", "") or ""),
         )
         render = MineruStageRenderParams(
@@ -539,6 +583,17 @@ class BookStageTranslationParams:
     glossary_entries: list[dict[str, Any]]
     model: str
     base_url: str
+    domain_context_pages: int
+    domain_context_max_chars: int
+    local_context_neighbors: int
+    local_context_chars: int
+    auto_glossary_enabled: bool
+    auto_glossary_candidates: int
+    auto_glossary_terms: int
+    plain_text_timeout_seconds: int
+    batch_plain_text_timeout_seconds: int
+    formula_segment_timeout_seconds: int
+    formula_window_timeout_seconds: int
     credential_ref: str
 
 
@@ -618,6 +673,17 @@ class BookStageSpec:
             glossary_entries=glossary_entries,
             model=str(translation_payload.get("model", "") or ""),
             base_url=str(translation_payload.get("base_url", "") or ""),
+            domain_context_pages=int(translation_payload.get("domain_context_pages", 5) or 5),
+            domain_context_max_chars=int(translation_payload.get("domain_context_max_chars", 16000) or 16000),
+            local_context_neighbors=int(translation_payload.get("local_context_neighbors", 1) or 1),
+            local_context_chars=int(translation_payload.get("local_context_chars", 420) or 420),
+            auto_glossary_enabled=bool(translation_payload.get("auto_glossary_enabled", True)),
+            auto_glossary_candidates=int(translation_payload.get("auto_glossary_candidates", 100) or 100),
+            auto_glossary_terms=int(translation_payload.get("auto_glossary_terms", 30) or 30),
+            plain_text_timeout_seconds=int(translation_payload.get("plain_text_timeout_seconds", 90) or 90),
+            batch_plain_text_timeout_seconds=int(translation_payload.get("batch_plain_text_timeout_seconds", 120) or 120),
+            formula_segment_timeout_seconds=int(translation_payload.get("formula_segment_timeout_seconds", 120) or 120),
+            formula_window_timeout_seconds=int(translation_payload.get("formula_window_timeout_seconds", 150) or 150),
             credential_ref=str(translation_payload.get("credential_ref", "") or ""),
         )
         render = BookStageRenderParams(

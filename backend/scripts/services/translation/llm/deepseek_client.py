@@ -90,6 +90,44 @@ def sanitize_prompt_context_text(text: str) -> str:
     return sanitized
 
 
+def _add_context_fields_to_payload(item_payload: dict[str, Any], item: dict) -> None:
+    if item.get("continuation_prev_text"):
+        context_before = sanitize_prompt_context_text(item["continuation_prev_text"])
+        if context_before:
+            item_payload["context_before"] = context_before
+    if item.get("continuation_next_text"):
+        context_after = sanitize_prompt_context_text(item["continuation_next_text"])
+        if context_after:
+            item_payload["context_after"] = context_after
+    local_before = sanitize_prompt_context_text(str(item.get("local_context_before", "") or ""))
+    local_after = sanitize_prompt_context_text(str(item.get("local_context_after", "") or ""))
+    if local_before:
+        item_payload["local_context_before"] = local_before
+    if local_after:
+        item_payload["local_context_after"] = local_after
+
+
+def _add_context_lines(lines: list[str], item: dict) -> None:
+    if item.get("continuation_group"):
+        lines.append("这是跨栏或跨页续接正文的一部分，请结合上下文理解后直接输出这一整段的译文。")
+    if item.get("continuation_prev_text"):
+        context_before = sanitize_prompt_context_text(item["continuation_prev_text"])
+        if context_before:
+            lines.append(f"前文续接上下文：{context_before}")
+    if item.get("continuation_next_text"):
+        context_after = sanitize_prompt_context_text(item["continuation_next_text"])
+        if context_after:
+            lines.append(f"后文续接上下文：{context_after}")
+    local_before = sanitize_prompt_context_text(str(item.get("local_context_before", "") or ""))
+    local_after = sanitize_prompt_context_text(str(item.get("local_context_after", "") or ""))
+    if local_before or local_after:
+        lines.append("以下局部上下文只用于语义消歧和术语一致，不得把上下文中不属于原文的内容并入译文。")
+    if local_before:
+        lines.append(f"前文局部上下文：{local_before}")
+    if local_after:
+        lines.append(f"后文局部上下文：{local_after}")
+
+
 def _item_math_mode(item: dict) -> str:
     return str(item.get("math_mode", "placeholder") or "placeholder").strip() or "placeholder"
 
@@ -130,16 +168,7 @@ def _direct_typst_batch_user_prompt(
             decision_hints = build_decision_hints(item)
             if decision_hints:
                 lines.append(f"翻译提示：{decision_hints}")
-        if item.get("continuation_group"):
-            lines.append("这是跨栏或跨页续接正文的一部分，请结合上下文理解后直接输出这一整段的译文。")
-        if item.get("continuation_prev_text"):
-            context_before = sanitize_prompt_context_text(item["continuation_prev_text"])
-            if context_before:
-                lines.append(f"前文上下文：{context_before}")
-        if item.get("continuation_next_text"):
-            context_after = sanitize_prompt_context_text(item["continuation_next_text"])
-            if context_after:
-                lines.append(f"后文上下文：{context_after}")
+        _add_context_lines(lines, item)
     return "\n".join(lines).strip()
 
 
@@ -164,16 +193,7 @@ def _direct_typst_single_user_prompt(
         decision_hints = build_decision_hints(item)
         if decision_hints:
             lines.append(f"翻译提示：{decision_hints}")
-    if item.get("continuation_group"):
-        lines.append("这是跨栏或跨页续接正文的一部分，请结合上下文理解后直接输出这一整段的译文。")
-    if item.get("continuation_prev_text"):
-        context_before = sanitize_prompt_context_text(item["continuation_prev_text"])
-        if context_before:
-            lines.append(f"前文上下文：{context_before}")
-    if item.get("continuation_next_text"):
-        context_after = sanitize_prompt_context_text(item["continuation_next_text"])
-        if context_after:
-            lines.append(f"后文上下文：{context_after}")
+    _add_context_lines(lines, item)
     return "\n".join(lines).strip()
 
 
@@ -241,17 +261,10 @@ def build_messages(
             item_payload["decision_hints"] = build_decision_hints(item)
         if group_id:
             item_payload["continuation_group"] = group_id
-            if item.get("continuation_prev_text"):
-                context_before = sanitize_prompt_context_text(item["continuation_prev_text"])
-                if context_before:
-                    item_payload["context_before"] = context_before
-            if item.get("continuation_next_text"):
-                context_after = sanitize_prompt_context_text(item["continuation_next_text"])
-                if context_after:
-                    item_payload["context_after"] = context_after
             group = groups.setdefault(group_id, {"group_id": group_id, "item_ids": [], "combined_source_text": []})
             group["item_ids"].append(item["item_id"])
             group["combined_source_text"].append(sanitize_prompt_context_text(item["protected_source_text"]))
+        _add_context_fields_to_payload(item_payload, item)
         items_payload.append(item_payload)
     user_payload = {
         "task": load_prompt("translation_task.txt"),
@@ -355,16 +368,9 @@ def build_single_item_fallback_messages(
     style_hint = structure_style_hint(item.get("metadata", {}) or {})
     if style_hint:
         user_payload["item"]["style_hint"] = style_hint
-    if item.get("continuation_prev_text"):
-        context_before = sanitize_prompt_context_text(item["continuation_prev_text"])
-        if context_before:
-            user_payload["item"]["context_before"] = context_before
-    if item.get("continuation_next_text"):
-        context_after = sanitize_prompt_context_text(item["continuation_next_text"])
-        if context_after:
-            user_payload["item"]["context_after"] = context_after
     if item.get("continuation_group"):
         user_payload["item"]["continuation_group"] = item["continuation_group"]
+    _add_context_fields_to_payload(user_payload["item"], item)
     user_prompt = (
         _direct_typst_single_user_prompt(item, mode=mode)
         if direct_typst_mode
